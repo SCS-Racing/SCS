@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>F1 Grid - Minimalist Line-Up (80 Drivers)</title>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    body {
+      background-color: #15151e;
+      color: #ffffff;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    /* Grid für den Monitor */
+    .f1-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+      padding: 24px;
+      background-color: #15151e;
+    }
+    /* Grid für das exportierte PNG Poster */
+    .f1-grid-export {
+      grid-template-columns: repeat(8, 1fr) !important;
+      width: 1200px !important;
+    }
+    /* Überarbeiteter, absolut krisensicherer Karten-Look */
+    .f1-card {
+      aspect-ratio: 3 / 4;
+      border-radius: 6px;
+      padding: 12px 6px;
+      display: flex;
+      /* Dreht die Render-Reihenfolge um: Nummer orientiert sich nach unten, Name nach oben */
+      flex-direction: column-reverse; 
+      justify-content: flex-end; 
+      align-items: center;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+    .f1-name {
+      font-weight: 900;
+      text-transform: uppercase;
+      text-align: center;
+      /* Flexiblere Schriftgröße, leicht verkleinert für den oberen Rand */
+      font-size: clamp(0.7rem, 2vw, 0.8rem); 
+      line-height: 1.1;
+      letter-spacing: -0.01em;
+      color: rgba(255, 255, 255, 0.95);
+      width: 100%;
+      margin-bottom: auto; /* Schiebt den Namen sanft nach oben, hält aber Abstand */
+      padding-top: 4px;
+      word-wrap: break-word;
+      white-space: normal;
+    }
+    .f1-number {
+      font-size: 3.8rem; /* Minimal angepasst für optimales Platzverhältnis */
+      font-weight: 900;
+      font-style: italic;
+      text-align: center;
+      line-height: 0.9;
+      letter-spacing: -0.05em;
+      text-shadow: 0 4px 8px rgba(0,0,0,0.6);
+      margin-top: auto; /* Verankert die Nummer fest unten */
+      padding-bottom: 4px;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+
+  <div x-data="racingGrid()">
+    
+    <!-- HEADER -->
+    <div style="border-bottom: 4px solid #e10600; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+      <div>
+        <h1 style="font-size: 2.2rem; font-weight: 900; font-style: italic; margin: 0; letter-spacing: -0.05em;">DRIVER LINE-UP <span style="color: #e10600;">2026</span></h1>
+        <p style="color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; margin: 5px 0 0 0;">Startnummernübersicht // <span x-text="fahrer.length + ' Startplätze gesamt'"></span></p>
+      </div>
+      
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <input 
+          type="text" 
+          x-model="suchBegriff" 
+          placeholder="SUCHEN (NAME ODER NR)..." 
+          style="background: #1f1f2a; color: white; border: none; border-bottom: 2px solid #475569; padding: 10px 20px; font-weight: bold; outline: none;"
+        >
+        
+        <button 
+          @click="exportToPNG()" 
+          style="background: #e10600; color: white; font-weight: 800; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase;"
+        >
+          PNG Exportieren 📸
+        </button>
+      </div>
+    </div>
+
+    <!-- POSTER GRID -->
+    <div class="f1-grid" id="poster-grid">
+      <template x-for="f in gefilterteFahrer" :key="f.nummer + f.name">
+        <div class="f1-card" :style="f.name === 'FREI' ? 'background-color: #1f1f2a;' : 'background-color: ' + f.farbe">
+          <!-- Die Reihenfolge im HTML ist wegen column-reverse umgedreht, damit das Layout bombenfest hält -->
+          <div class="f1-number" x-text="f.nummer" :style="f.name === 'FREI' ? 'color: rgba(255,255,255,0.15);' : 'color: #ffffff;'"></div>
+          <div class="f1-name" x-text="f.name" :style="f.name === 'FREI' ? 'color: rgba(255,255,255,0.3); font-weight: 500;' : ''"></div>
+        </div>
+      </template>
+    </div>
+
+  </div>
+
+  <script>
+    function racingGrid() {
+      return {
+        suchBegriff: '',
+        
+        // LISTE DER FAHRER (Aktualisiert basierend auf image_8f1b3c.png)
+        fahrer: [
+          { nummer: '93', name: 'Pommesgabel93', farbe: '#064289' },
+          { nummer: '101', name: 'I-One-ZeRo-One-I', farbe: '#064289' },
+          { nummer: '69', name: 'SHANKS', farbe: '#064289' },
+          { nummer: '82', name: 'Chris_8214', farbe: '#FF8000' },
+          { nummer: '10', name: 'D23_HermannWau', farbe: '#026F30' },
+          { nummer: '64', name: 'TCR_Landy1264', farbe: '#4E7CFF' },
+          { nummer: '911', name: 'MaxdeLachs', farbe: '#0078C1' },
+          { nummer: '05', name: 'MES_Autonom', farbe: '#0078C1' },
+          { nummer: '149', name: 'ARK--Andi G.', farbe: '#FF8000' },
+          { nummer: '73', name: 'Onkel Ori', farbe: '#0078C1' },
+          { nummer: '31', name: 'K3V1N_005', farbe: '#FF8000' },
+          { nummer: '81', name: 'ARK-PapiMicky', farbe: '#27F4D2' },
+          { nummer: '161', name: 'D23_Ranael', farbe: '#27F4D2' },
+          { nummer: '205', name: 'Imperator_Soeren', farbe: '#00594F' },
+          { nummer: '21', name: 'KOSOVOMAN', farbe: '#00594F' },
+          { nummer: '710', name: 'ARK-Turrican710', farbe: '#E10600' },
+          { nummer: '88', name: 'dehuebbi', farbe: '#E10600' },
+          { nummer: '606', name: 'SCS_Fiver2.0', farbe: '#00594F' },
+          { nummer: '77', name: 'RLR_KlingenRacer', farbe: '#026F30' },
+          { nummer: '115', name: 'Haberg15', farbe: '#026F30' },
+          { nummer: '27', name: 'RLR_PottRacer71', farbe: '#4E7CFF' },
+          { nummer: '145', name: 'RLR_Ducati69', farbe: '#4E7CFF' },
+          { nummer: '95', name: 'HM_Knallfrosch_167', farbe: '#37BEDD' },
+          { nummer: '06', name: 'CK_TOWER', farbe: '#37BEDD' },
+          { nummer: '34', name: 'ObiWan', farbe: '#3e3e42' },
+          { nummer: '20', name: 'Schmeck1', farbe: '#026F30' },
+          { nummer: '7', name: 'DarkFate', farbe: '#3e3e42' },
+          { nummer: '86', name: 'PuntoEvo', farbe: '#3e3e42' },
+          { nummer: '123', name: 'manuems', farbe: '#3e3e42' },
+          { nummer: '83', name: 'zulang', farbe: '#b5a642' },
+          { nummer: '189', name: 'Danech', farbe: '#b5a642' },
+          { nummer: '104', name: 'SCS Dustin', farbe: '#b5a642' },
+          { nummer: '202', name: 'SCS Pepe', farbe: '#7a1f1d' },
+          { nummer: '24', name: 'Der Sengo', farbe: '#7a1f1d' },
+          { nummer: '55', name: 'GO-55', farbe: '#7a1f1d' },
+          { nummer: '127', name: 'Pech_Gehabt177', farbe: '#8b5cf6' },
+          { nummer: '80', name: 'Lambock82', farbe: '#8b5cf6' },
+          { nummer: '31', name: 'Freddy Fresh', color: '#8b5cf6' },
+          { nummer: '99', name: 'Lumolini6', farbe: '#ec4899' },
+          { nummer: '82', name: 'Franco Werner', farbe: '#ec4899' },
+          { nummer: '129', name: 'TPu13', farbe: '#ec4899' },
+          { nummer: '33', name: 'Michi', farbe: '#E10600' },
+          { nummer: '62', name: 'Rolly', farbe: '#E10600' },
+          { nummer: '56', name: 'Boca_Carbonara', farbe: '#f59e0b' },
+          { nummer: '22', name: 'nini1997862', farbe: '#f59e0b' },
+          { nummer: '97', name: 'UTD_Enrico_X9 ', farbe: '#f59e0b' },
+          { nummer: '397', name: 'FXR_397', farbe: '#10b981' },
+          { nummer: '82', name: 'Aleksiel', farbe: '#10b981' },
+          { nummer: '14', name: 'KEEM4N', farbe: '#10b981' },
+          { nummer: '46', name: 'd_richwater', farbe: '#06b6d4' },
+          { nummer: '304', name: 'letsmando', farbe: '#06b6d4' },
+          { nummer: '200', name: 'Joe_0011', farbe: '#06b6d4' },
+          { nummer: '009', name: 'Tyren o Saurus', farbe: '#6366f1' },
+          { nummer: '25', name: 'Wand_TV', farbe: '#6366f1' },
+          { nummer: '188', name: 'captain_nemec', farbe: '#6366f1' },
+          { nummer: '67', name: 'SaschTheDash ', farbe: '#a855f7' },
+          { nummer: '998', name: 'PRL_DashsWifey', farbe: '#a855f7' },
+          { nummer: '176', name: 'Lugokart', farbe: '#a855f7' },
+          { nummer: '74', name: 'valexsesh', farbe: '#27F4D2' },
+          { nummer: '330', name: 'Lukaso', farbe: '#FF8000' },
+          { nummer: '84', name: 'ToniDucati', farbe: '#475569' },
+          { nummer: '36', name: 'RTO_mrfreezie_87', farbe: '#475569' },
+          { nummer: '92', name: 'DingDong', farbe: '#475569' },
+          { nummer: '90', name: 'LOMEO_BTW', farbe: '#15151e' },
+          
+          // FREIE VERFÜGBARE SLOTS
+          { nummer: '2', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '3', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '4', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '8', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '9', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '11', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '12', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '13', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '15', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '16', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '17', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '18', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '23', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '26', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '28', name: 'FREI', farbe: '#1f1f2a' },
+          { nummer: '44', name: 'FREI', farbe: '#1f1f2a' }
+        ],
+        
+        get gefilterteFahrer() {
+          return this.fahrer.filter(f => {
+            return f.name.toLowerCase().includes(this.suchBegriff.toLowerCase()) || f.nummer.includes(this.suchBegriff);
+          });
+        },
+
+        exportToPNG() {
+          const gridElement = document.getElementById('poster-grid');
+          gridElement.classList.add('f1-grid-export');
+          
+          html2canvas(gridElement, {
+            backgroundColor: '#15151e',
+            scale: 2.5,
+            logging: false,
+            windowWidth: 1300
+          }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = 'f1-grid-80-fahrer.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            
+            gridElement.classList.remove('f1-grid-export');
+          });
+        }
+      }
+    }
+  </script>
+</body>
+</html>
